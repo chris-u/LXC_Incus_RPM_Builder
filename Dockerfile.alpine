@@ -1,0 +1,19 @@
+ARG NEBULA_VERSION=1.10.3
+ARG NEBULA_ARCH=arm64
+
+# Stage 1: Build the APK
+FROM alpine:latest AS builder
+ARG NEBULA_VERSION
+ARG NEBULA_ARCH
+
+# 1. Install Alpine packaging tools
+RUN apk add --no-cache alpine-sdk sudo go curl
+
+
+RUN curl -L -o /var/tmp/nebula-linux-v${NEBULA_VERSION}.${NEBULA_ARCH}.tar.gz \
+       https://github.com/slackhq/nebula/releases/download/v${NEBULA_VERSION}/nebula-linux-${NEBULA_ARCH}.tar.gz && \
+       mkdir -p /tmp/nebula/apk/usr/bin && \
+       cd /tmp/nebula/apk/usr/bin && \
+       gzip -d < /var/tmp/nebula-linux-v${NEBULA_VERSION}.${NEBULA_ARCH}.tar.gz | tar -xvf - && \
+       chown -Rh  root:root ./* 
+
