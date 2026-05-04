@@ -1,0 +1,32 @@
+[Unit]
+Description=Nebula overlay network mesh: %i
+Wants=network-online.target
+After=network-online.target
+# Ensures the service won't try to start if the config file is missing
+ConditionPathExists=/etc/nebula/%i.yml
+
+[Service]
+Type=simple
+
+# %i is replaced by whatever follows the '@' in the systemctl command
+ExecStart=/usr/bin/nebula -config /etc/nebula/%i.yml
+
+# Reliability: Try to restart every 5 seconds if it crashes
+Restart=always
+RestartSec=5
+
+# Security Hardening for Oracle Linux 10
+User=root
+# Grant specific network powers rather than just 'blanket' root access
+Capabilities=CAP_NET_ADMIN
+AmbientCapabilities=CAP_NET_ADMIN
+
+# Sandboxing
+ProtectSystem=full
+ProtectHome=yes
+ProtectControlGroups=yes
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

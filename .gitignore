@@ -1,0 +1,24 @@
+# --- GPG / Security ---
+# Ignore all GPG key files (public and private)
+# We handle the public ones manually, better safe than sorry!
+*.asc
+*.key
+*.gpg
+
+# --- RPM Build Artifacts ---
+# You don't want to store the 50MB RPMs in your Git history
+*.rpm
+RPMS/
+SRPMS/
+build/
+dist/
+
+# --- Mac / OS Specific ---
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# --- Docker / Colima ---
+# If your build process creates temp docker files or logs
+*.log
+.docker/
