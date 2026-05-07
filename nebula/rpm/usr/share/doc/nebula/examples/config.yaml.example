@@ -1,0 +1,39 @@
+pki:
+  ca: /etc/nebula/ca.crt
+  cert: /etc/nebula/host.crt
+  key: /etc/nebula/host.key
+
+static_host_map:
+  # Replace with your Lighthouse's VPN IP and Public IP:Port
+  "10.0.0.1": ["1.2.3.4:4242"]
+
+lighthouse:
+  am_lighthouse: false
+  interval: 60
+  hosts:
+    - "10.0.0.1"
+
+listen:
+  host: 0.0.0.0
+  port: 4242
+
+tun:
+  dev: nebula1
+  drop_local_broadcast: true
+  drop_multicast: true
+
+firewall:
+  conntrack:
+    tcp_timeout: 12m
+    udp_timeout: 3m
+    default_timeout: 10m
+
+  outbound:
+    - port: any
+      proto: any
+      host: any
+
+  inbound:
+    - port: any
+      proto: icmp
+      host: any

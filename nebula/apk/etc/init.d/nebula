@@ -1,0 +1,30 @@
+#!/sbin/openrc-run
+
+# If the service is 'nebula.bootstrap', it uses config in /etc/nebula/bootstrap/
+NET_NAME="${RC_SVCNAME#*.}"
+
+case "$NET_NAME"
+in
+  (nebula) NET_NAME="default" ;;
+esac
+
+description="Nebula mesh VPN for $NET_NAME"
+cfgfile="/etc/nebula/${NET_NAME}/config.yaml"
+command="/usr/sbin/nebula"
+command_args="-config $cfgfile"
+command_background=true
+pidfile="/run/${RC_SVCNAME}.pid"
+
+depend() {
+    need net
+    after firewall
+}
+
+start_pre() {
+    if 
+       test ! -f "$cfgfile" 
+    then
+        eerror "Configuration file $cfgfile not found!"
+        return 1
+    fi
+}

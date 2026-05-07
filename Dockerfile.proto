@@ -1,19 +1,37 @@
-FROM oraclelinux:10
+FROM  oraclelinux:10
 
-RUN dnf groupinstall 'development tools'
+#RUN dnf groupinstall 'development tools'
 
-RUN dnf config-manager --enable ol10_codeready_builder
+#RUN dnf config-manager --enable ol10_codeready_builder
 
-RUN dnf install oracle-epel-release-el10 &&  dnf config-manager --set-enabled ol10_codeready_builder
+#RUN dnf install oracle-epel-release-el10 &&  dnf config-manager --set-enabled ol10_codeready_builder
 
-RUN dnf install oracle-epel-release-el10 golang tcl ruby-devel gem pip cmake autoconf automake tar\
-                libacl-devel libcap-devel libuv-devel libsq3-devel dbus-devel \
-                docbook-dtds pam-devel liburing-devel libselinux-devel selinux-policy-devel\
-                libattr-devel libsqlite3x-devel libtool libgudev libgudev-devel lz4-devel \
-                dnsmasq-utils dnsmasq make rsync squashfs-tools tar xz-devel ruby-devel \
-                docbook-utils docbook2X libseccomp-devel libbpf-devel ninja-build
+#RUN dnf install oracle-epel-release-el10 golang tcl ruby-devel gem pip cmake autoconf automake tar\
+#                libacl-devel libcap-devel libuv-devel libsq3-devel dbus-devel \
+#                docbook-dtds pam-devel liburing-devel libselinux-devel selinux-policy-devel\
+#                libattr-devel libsqlite3x-devel libtool libgudev libgudev-devel lz4-devel \
+#                dnsmasq-utils dnsmasq make rsync squashfs-tools tar xz-devel ruby-devel \
+#                docbook-utils docbook2X libseccomp-devel libbpf-devel ninja-build meson
+#
+##RUN pip install --root-user-action=ignore meson && gem install fpm
+#RUN gem install --no-document fpm
 
-RUN pip install meson && gem install fpm
+RUN dnf install -y \
+    oracle-epel-release-el10 dnf-plugins-core && \
+    dnf config-manager --set-enabled ol10_appstream,ol10_codeready_builder && \
+    dnf groupinstall -y "Development Tools" && \
+    dnf install -y \
+      golang tcl cmake autoconf automake tar rsync \
+      libacl-devel libcap-devel libuv-devel dbus-devel \
+      pam-devel liburing-devel libselinux-devel selinux-policy-devel \
+      libattr-devel libsqlite3x-devel libtool libgudev-devel lz4-devel \
+      dnsmasq-utils dnsmasq squashfs-tools xz-devel \
+      docbook-dtds docbook-utils docbook2X \
+      libseccomp-devel libbpf-devel \
+      ninja-build meson \
+      ruby-devel gem && \
+    gem install --no-document fpm && \
+    dnf clean all
 
 
 RUN curl -L -o /var/tmp/lxc-{{LXC_VERSION}}.tar.gz https://github.com/lxc/lxc/releases/download/v{{LXC_VERSION}}/lxc-{{LXC_VERSION}}.tar.gz && \
@@ -25,14 +43,14 @@ RUN cd /var/tmp/lxc-*[0-9]/ && mkdir -p /tmp/lxc-instdir/ &&  meson setup buildd
 
 RUN cd /tmp/ &&  \
    fpm -s dir -t rpm \
-    -n "custom-lxc" \
+    -n "{{PREFIX}}-lxc" \
     -v "{{LXC_VERSION}}" \
     -C /tmp/lxc-instdir \
     $(for n in $(find /tmp/lxc-instdir/bin/ -type f | xargs ldd 2> /dev/null | while read a b c d ; do echo $c ;done | grep / | sort -u)  ; do rpm -q --qf "-d %{NAME} " --whatprovides "$n" ; done) \
     --description "LXC {{LXC_VERSION}} built from source" .
 
 
-RUN dnf install -y /tmp/custom-lxc*rpm
+RUN dnf install -y /tmp/{{PREFIX}}-lxc*rpm
 
 
 RUN cd /var/tmp/incus-*[0-9]/  && make deps && \
@@ -48,9 +66,50 @@ RUN cd /tmp/incus-instdir  && mkdir lib && \
         done | while read line ; do cp -P "$line" lib/ ; done && \
       cd /tmp/ && \
       fpm -s dir -t rpm \
-        -n "custom-incus" \
+        -n "{{PREFIX}}-incus" \
         -v "{{INCUS_VERSION}}" \
         -C /tmp/incus-instdir \
         $(for n in $(find /tmp/incus-instdir/bin/ -type f | xargs ldd 2> /dev/null | while read a b c d ; do echo $c ;done | grep / | sort -u)  ; do rpm -q --qf "-d %{NAME} " --whatprovides "$n" ; done) \
         --description "incus {{INCUS_VERSION}} built from source" .
+
+
+COPY nebula/rpm/usr  /tmp/nebula/rpm/
+
+COPY nebula/rpm/post-install.sh /tmp/nebula-post-install.sh
+
+RUN curl -L -o /var/tmp/nebula-linux-v{{NEBULA_VERSION}}.{{NEBULA_ARCH}}.tar.gz \
+       https://github.com/slackhq/nebula/releases/download/v{{NEBULA_VERSION}}/nebula-linux-{{NEBULA_ARCH}}.tar.gz && \
+       mkdir -p /tmp/nebula/rpm/usr/bin && \
+       cd /tmp/nebula/rpm/usr/bin && \
+       gzip -d < /var/tmp/nebula-linux-v{{NEBULA_VERSION}}.{{NEBULA_ARCH}}.tar.gz | tar -xvf - && \
+       chown -Rh  root:root ./* 
+
+RUN cd /tmp/ &&  \
+   mkdir -p /tmp/nebula/rpm/etc/nebula/ /etc/nebula && \
+   fpm -s dir -t rpm \
+    -n "{{PREFIX}}-nebula" \
+    -v "{{NEBULA_VERSION}}" \
+    -C /tmp/nebula/rpm/ \
+    --after-install /tmp/nebula-post-install.sh \
+    --config-files /etc/nebula/ \
+    --description "repackaged nebula {{NEBULA_VERSION}} from github tarball artifacts" . && \
+    rmdir /etc/nebula/
+
+RUN cd /tmp/ &&  \
+   mkdir -p /tmp/nebula/rpm/etc/nebula/ /etc/nebula && \
+   fpm -s dir -t deb \
+    -n "{{PREFIX}}-nebula" \
+    -v "{{NEBULA_VERSION}}" \
+    -C /tmp/nebula/rpm/ \
+    --after-install /tmp/nebula-post-install.sh \
+    --config-files /etc/nebula/ \
+    --description "repackaged nebula {{NEBULA_VERSION}} from github tarball artifacts" . && \
+    rmdir /etc/nebula/
+
+COPY nebula/apk      /tmp/nebula/
+
+
+
+COPY nebula/apk      /tmp/nebula/
+
 

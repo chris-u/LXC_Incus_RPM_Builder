@@ -1,0 +1,34 @@
+pki:
+  ca: /etc/nebula/ca.crt
+  cert: /etc/nebula/lighthouse.crt
+  key: /etc/nebula/lighthouse.key
+
+static_host_map:
+  # Lighthouses don't usually need a map of themselves
+
+lighthouse:
+  # This tells Nebula to answer queries from other nodes
+  am_lighthouse: true
+  serve_dns: false # Set to true if you want to use Nebula for DNS lookups
+
+listen:
+  host: 0.0.0.0
+  port: 4242
+
+tun:
+  dev: nebula1
+
+firewall:
+  outbound:
+    - port: any
+      proto: any
+      host: any
+
+  inbound:
+    # IMPORTANT: Lighthouses must allow UDP 4242 from anywhere to function
+    - port: 4242
+      proto: udp
+      host: any
+    - port: any
+      proto: icmp
+      host: any
