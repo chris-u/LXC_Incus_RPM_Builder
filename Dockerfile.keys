@@ -1,0 +1,27 @@
+#ARG LXC_VERSION=7.0.0
+##ARG INCUS_VERSION=7.0.0
+#ARG INCUS_VERSION=6.23.0
+#ARG NEBULA_VERSION=1.10.2
+#ARG NEBULA_ARCH=arm64
+#ARG PREFIX=trussio
+
+FROM  oraclelinux:10 AS OEL10builder
+
+RUN dnf groupinstall 'development tools'
+
+RUN dnf config-manager --enable ol10_codeready_builder
+
+RUN dnf install oracle-epel-release-el10 &&  dnf config-manager --set-enabled ol10_codeready_builder
+
+RUN dnf install oracle-epel-release-el10 golang tcl ruby-devel gem pip cmake autoconf automake tar\
+                libacl-devel libcap-devel libuv-devel libsq3-devel dbus-devel \
+                docbook-dtds pam-devel liburing-devel libselinux-devel selinux-policy-devel\
+                libattr-devel libsqlite3x-devel libtool libgudev libgudev-devel lz4-devel \
+                dnsmasq-utils dnsmasq make rsync squashfs-tools tar xz-devel ruby-devel \
+                docbook-utils docbook2X libseccomp-devel libbpf-devel ninja-build pinentry
+
+
+COPY assets/gpg-keycheck.sh /tmp/
+RUN chmod 755 /tmp/gpg-keycheck.sh
+RUN pip install meson && gem install fpm
+

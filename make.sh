@@ -29,6 +29,17 @@ docker build \
   --build-arg PREFIX="$prefix" \
   --build-arg NEBULA_ARCH="$nebula_arch" \
   --build-arg NEBULA_VERSION="$nebula_version" \
+  -t uek10-keys:lxc${lxc_version}_inc${incus_version} \
+  -f Dockerfile.keys \
+  .
+  
+
+docker build \
+  --build-arg LXC_VERSION="$lxc_version" \
+  --build-arg INCUS_VERSION="$incus_version" \
+  --build-arg PREFIX="$prefix" \
+  --build-arg NEBULA_ARCH="$nebula_arch" \
+  --build-arg NEBULA_VERSION="$nebula_version" \
   -t uek10-incus:lxc${lxc_version}_inc${incus_version} \
   .
   
