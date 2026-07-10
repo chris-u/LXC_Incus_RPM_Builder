@@ -51,6 +51,7 @@ RUN dnf install -y /tmp/${PREFIX}-lxc*rpm
 
 
 RUN cd /var/tmp/incus-*[0-9]/  && make deps && \
+       export GOTOOLCHAIN=auto && \
        export CGO_CFLAGS="-I/root/go/deps/raft/include/ -I/root/go/deps/cowsql/include/" && \
        export CGO_LDFLAGS="-L/root/go/deps/raft/.libs -L/root/go/deps/cowsql/.libs/" && \
        export LD_LIBRARY_PATH="/root/go/deps/raft/.libs/:/root/go/deps/cowsql/.libs/" && \
