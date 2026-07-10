@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 set -euo pipefail
 
 yelp() {
@@ -12,25 +12,23 @@ yelp() {
 echo "[Config] Awaiting passphrase from stdin..."
 read -r PASSPHRASE
 
-test -z "${PASSPHRASE}" && yelp 3 "[Error] No passphrase received. Exiting."
-
+test -z "${PASSPHRASE}"  && yelp 3 "[Error] No passphrase received. Exiting."
 
 # 2. Define Configuration
 : "${KEY_NAME:=trussio master key}"
 : "${KEY_EMAIL:=trussio@f82.us}"
 : "${OUTPUT_DIR:=/keys}"
 
-test -d "$OUTPUT_DIR" || yelp 8 "[Error] No directory $OUTPUT_DIR"
+test  -d "$OUTPUT_DIR"  || yelp 8 "[Error] No directory $OUTPUT_DIR"
+test  -z "$(gpg --with-colons --list-secret-keys 2> /dev/null)"  || yelp 7 "[Error] gpg keys already exist"
 
-test -z "$(gpg --with-colons --list-secret-keys 2> /dev/null)" || yelp 7 "[Error] gpg keys already exist"
-
-echo "[GPG] Generating Primary Master Key & GitHub Subkey..."
+echo "[GPG] Generating Primary Master Key [C] & GitHub Subkey [S] using Ed25519..."
 gpg --batch --generate-key <<EOF
-Key-Type: RSA
-Key-Length: 4096
+Key-Type: EDDSA
+Key-Curve: ed25519
 Key-Usage: cert
-Subkey-Type: RSA
-Subkey-Length: 4096
+Subkey-Type: EDDSA
+Subkey-Curve: ed25519
 Subkey-Usage: sign
 Name-Real: ${KEY_NAME}
 Name-Email: ${KEY_EMAIL}
@@ -39,45 +37,33 @@ Passphrase: ${PASSPHRASE}
 %commit
 EOF
 
+# Extract Master Fingerprint cleanly using awk
+MASTER_FP=$(gpg --with-colons --fingerprint "${KEY_EMAIL}" | awk -F: '/^fpr/ {print $10; exit}')
+echo "[GPG] Master Identity Fingerprint Verified: ${MASTER_FP}"
 
-# Find the Master Key Fingerprint programmatically
-MASTER_FP=$(
- gpg --with-colons --list-secret-keys "${KEY_EMAIL}"  |
-   while 
-     IFS=: read a b  &&
-     case "$a" 
-     in 
-       "sec") read -r next_line && echo "$next_line"  | cut -f10 -d: ; false ;; 
-     esac  
-   do
-     :
-   done ;
-           )
-
-echo "[GPG] Generating Dedicated Home System Subkey..."
+echo "[GPG] Generating Dedicated Home System Subkey [S]..."
 gpg --batch --pinentry-mode loopback --passphrase "${PASSPHRASE}" \
-    --quick-add-key "${MASTER_FP}" rsa4096 sign 0
+    --quick-add-key "${MASTER_FP}" ed25519 sign 0
 
+# Extract the Subkey IDs using fingerprints for absolute precision
+SUBKEY_FPRS=($(gpg --with-colons --fingerprint "${KEY_EMAIL}" | awk -F: '/^fpr/ {print $10}'))
+GITHUB_SUBKEY_FPR=${SUBKEY_FPRS[1]}
+HOME_SUBKEY_FPR=${SUBKEY_FPRS[2]}
 
-# Extract the Subkey IDs
-o=$(gpg --with-colons --list-secret-keys "${KEY_EMAIL}" | awk -F: '/^ssb/ {print $5}')
-GITHUB_SUBKEY_ID=$(echo "$o" | head -1 )
-HOME_SUBKEY_ID=$(echo "$o" | head -2 | tail -1)
-
-echo "[Export] Writing key files to ${OUTPUT_DIR}..."
+echo "[Export] Writing cryptographically isolated key files to ${OUTPUT_DIR}..."
 
 # Export public key
 gpg --armor --export "${MASTER_FP}" > "${OUTPUT_DIR}/public-key.asc"
 
-# Export isolated subkeys (trailing ! isolates them)
+# Export isolated secret subkeys (with stubbed master)
 gpg --batch --pinentry-mode loopback --passphrase "${PASSPHRASE}" \
-    --export-secret-subkeys --armor "${GITHUB_SUBKEY_ID}!" > "${OUTPUT_DIR}/github-secrets.key"
+    --export-secret-subkeys --armor "${GITHUB_SUBKEY_FPR}!" > "${OUTPUT_DIR}/github-secrets.key"
 
 gpg --batch --pinentry-mode loopback --passphrase "${PASSPHRASE}" \
-    --export-secret-subkeys --armor "${HOME_SUBKEY_ID}!" > "${OUTPUT_DIR}/home-secrets.key"
+    --export-secret-subkeys --armor "${HOME_SUBKEY_FPR}!" > "${OUTPUT_DIR}/home-secrets.key"
 
-# Export the FULL master identity (including the primary key and all subkeys)
+# Export the FULL master identity bundle
 gpg --batch --pinentry-mode loopback --passphrase "${PASSPHRASE}" \
     --export-secret-keys --armor "${MASTER_FP}" > "${OUTPUT_DIR}/master-private.key"
 
-echo "[Success] Key generation complete. Files written to host volume mount."
+echo "[Success] Key generation complete. Cryptographic supply chain initialized."
