@@ -2,7 +2,7 @@
 
 prefix=trussio
 
-incus_version=7.0.0
+incus_version=7.2.0
 lxc_version=7.0.0
 nebula_version=1.10.3
 
